@@ -76,7 +76,7 @@ code{font:13px 'DM Mono',monospace;background:var(--cream);padding:1px 5px;borde
 
 /* insertar y añadir */
 .insertar{display:flex;justify-content:center;height:22px;margin:0 0 6px}
-.insertar button{cursor:pointer;border:1.5px dashed var(--ink);background:transparent;border-radius:999px;font:500 11px 'DM Mono';letter-spacing:.1em;padding:0 12px;opacity:.25;text-transform:uppercase}
+.insertar button{cursor:pointer;border:1.5px dashed var(--ink);background:transparent;border-radius:999px;font:500 11px 'DM Mono';letter-spacing:.1em;padding:0 12px;opacity:.5;text-transform:uppercase}
 .insertar button:hover,.insertar button:focus{opacity:1;background:var(--sun);border-style:solid}
 .anadir{margin:18px 0;padding:14px;border:2px solid var(--ink);border-radius:14px;background:var(--ink);color:var(--cream);box-shadow:4px 4px 0 var(--coral)}
 .anadir h3,.ajustes h3{margin:0 0 10px;font:500 11px 'DM Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--sun)}
@@ -118,3 +118,7 @@ h2.seccion::after{content:"";flex:1;height:2px;background:linear-gradient(90deg,
   .cabecera .grupo .btn{flex:1 1 auto}
   html,body{overflow-x:hidden}
 }
+
+.btn:disabled{opacity:.45;cursor:default;transform:none}
+.vista-barra .pista{font:500 11px 'DM Mono',monospace;color:var(--coral);letter-spacing:.06em}
+@media (max-width:900px){.vista-barra .pista{display:none}}

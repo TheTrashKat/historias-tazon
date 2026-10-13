@@ -382,9 +382,17 @@ function parrafos(t) {
   return out.join('\n');
 }
 const ref = b => b.img || '';
+// En la vista previa los campos vacíos muestran un texto guía, para poder hacer clic y escribir ahí.
+const GUIA = 'Escribe aquí…', GUIA_TITULO = 'Título';
 function aMarkdown(b, ancla) {
   const L = [];
-  if (ancla) L.push(`::: ancla ${b.id}`);
+  if (ancla) {
+    L.push(`::: ancla ${b.id}`);
+    const g = {};
+    for (const k of ['texto', 'popular', 'tinieblas']) if (k in b && !String(b[k]).trim()) g[k] = GUIA;
+    if (b.tipo === 'capitulo' && !String(b.titulo).trim()) g.titulo = GUIA_TITULO;
+    b = { ...b, ...g };
+  }
   const tit = (k, t) => t ? (k ? `# ${una(k)} | ${una(t)}` : `# ${una(t)}`) : '';
   switch (b.tipo) {
     case 'capitulo': L.push('', tit(b.kicker, b.titulo), '', parrafos(b.texto), ''); break;
@@ -535,17 +543,24 @@ const vista = $('#vista');
 let vistaLista = false, ultBase = '', ultTema = '';
 function prepararVista() {
   vista.srcdoc = `<!doctype html><html lang="es"><head><meta charset="utf-8"><style>${fontCss()}</style><style id="base"></style><style id="tema"></style>` +
-    `<style>.ancla-editor{display:block;height:0;scroll-margin-top:70px}</style></head><body class="web"></body></html>`;
-  vista.addEventListener('load', () => { vistaLista = true; ultBase = ultTema = ''; actualizarVista(); }, { once: true });
+    `<style>.ancla-editor{display:block;height:0;scroll-margin-top:70px}` +
+    `[contenteditable]{cursor:text;border-radius:3px}` +
+    `[contenteditable]:hover{outline:1.5px dashed rgba(234,96,119,.85);outline-offset:3px}` +
+    `[contenteditable]:focus{outline:2.5px solid #55C4BF;outline-offset:3px}` +
+    `[data-guia]{opacity:.45;font-style:italic}` +
+    `img.img-editable{cursor:pointer} img.img-editable:hover{filter:brightness(.9)}</style></head><body class="web"></body></html>`;
+  vista.addEventListener('load', () => { vistaLista = true; ultBase = ultTema = ''; conectarVista(vista.contentDocument); actualizarVista(); }, { once: true });
 }
 function actualizarVista() {
   if (!vistaLista) return;
   const d = vista.contentDocument; if (!d || !d.getElementById('base')) return;
+  if (escribiendo(d.activeElement)) { pendienteVista = true; return; }  // no maquetar bajo el cursor
   const r = construir(true);
   if (r.base !== ultBase) { d.getElementById('base').textContent = r.base; ultBase = r.base; }
   if (r.tema !== ultTema) { d.getElementById('tema').textContent = r.tema; ultTema = r.tema; }
   const se = d.scrollingElement, y = se ? se.scrollTop : 0;
   d.body.innerHTML = r.html;
+  marcarEditables(d);
   if (se) se.scrollTop = y;
   d.querySelectorAll('a[href^="#"]').forEach(x => x.addEventListener('click', e => {
     e.preventDefault(); const t = d.getElementById(x.getAttribute('href').slice(1)); if (t) t.scrollIntoView({ behavior: 'smooth' });
@@ -554,6 +569,142 @@ function actualizarVista() {
 function irA(id) {
   const d = vista.contentDocument; const t = d && d.getElementById('ed-' + id);
   if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ===================================================================== deshacer */
+const pila = [];
+function instantanea() {
+  pila.push(JSON.stringify({ ajustes: S.ajustes, bloques: S.bloques }));
+  if (pila.length > 50) pila.shift();
+  actualizarDeshacer();
+}
+function deshacer() {
+  const p = pila.pop();
+  if (!p) return aviso('No hay nada que deshacer');
+  const o = JSON.parse(p);
+  S.ajustes = o.ajustes; S.bloques = o.bloques; $('#s-tema').value = S.ajustes.tema;
+  pintar(); cambio(); actualizarDeshacer(); aviso('Deshecho');
+}
+function actualizarDeshacer() { const b = $('#b-deshacer'); if (b) b.disabled = !pila.length; }
+const escribiendo = el => !!el && (el.matches?.('input,textarea,select') || el.isContentEditable);
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z' && !escribiendo(document.activeElement)) { e.preventDefault(); deshacer(); }
+});
+
+/* ===================================================================== editar el texto en la vista previa */
+// Cada texto de la vista se marca con su bloque (data-b) y su campo (data-f). Al escribir en la vista se
+// reconstruye el campo y se copia al formulario; al salir del texto se vuelve a maquetar (guiones, capitular…).
+const EDITABLES = 'p,li,h1,h2,h3,h4,figcaption,.kicker,.etiqueta,.cabeza b,.autor,.pie-banner';
+const MULTI = new Set(['texto', 'popular', 'tinieblas', 'contraTexto']);
+function campoDe(b, el) {
+  const t = b.tipo;
+  if (el.matches('header.capitulo h1, .portadilla h1')) return 'titulo';
+  if (el.matches('header.capitulo .kicker, .portadilla .kicker')) return 'kicker';
+  if (el.matches('figcaption, .pie-banner')) return 'pie';
+  if (t === 'recuadro') return el.matches('.etiqueta') ? 'titulo' : 'texto';
+  if (t === 'leyenda') {
+    if (el.matches('.cabeza b')) return 'titulo';
+    if (el.closest('.rotulo') || el.matches('.cabeza .etiqueta')) return null;
+    return el.closest('.panel.popular') ? 'popular' : el.closest('.panel.tinieblas') ? 'tinieblas' : null;
+  }
+  if (t === 'epigrafe') return el.matches('.autor') ? 'autor' : 'texto';
+  if (['capitulo', 'texto', 'apertura', 'cita'].includes(t)) return el.matches('.etiqueta,.autor') ? null : 'texto';
+  return null;
+}
+function marcarEditables(d) {
+  const libro = d.querySelector('main.libro'); if (!libro) return;
+  const fijos = [['.titulo-portada', 'titulo'], ['.subtitulo-portada', 'subtitulo'], ['.etiqueta-portada', 'etiqueta'],
+    ['.portada .creditos span:first-child', 'autoria'], ['.portada .creditos span:last-child', 'fecha'],
+    ['.contraportada .texto p', 'contraTexto'], ['.contraportada .creditos-final', 'creditos']];
+  for (const [sel, f] of fijos) libro.querySelectorAll(sel).forEach(el => { el.contentEditable = 'true'; el.dataset.b = '@'; el.dataset.f = f; });
+  let actual = null;
+  const tw = d.createTreeWalker(libro, NodeFilter.SHOW_ELEMENT);
+  for (let el = tw.nextNode(); el; el = tw.nextNode()) {
+    if (el.classList.contains('ancla-editor')) { actual = S.bloques.find(b => 'ed-' + b.id === el.id) || null; continue; }
+    if (!actual || el.closest('section.portada,section.contraportada,nav.indice')) continue;
+    if (el.tagName === 'IMG' && 'img' in actual) { el.dataset.b = actual.id; el.classList.add('img-editable'); el.title = 'Clic para cambiar la imagen'; continue; }
+    if (!el.matches(EDITABLES) || el.parentElement.closest('[data-f]')) continue;
+    const f = campoDe(actual, el); if (!f) continue;
+    el.contentEditable = 'true'; el.spellcheck = true; el.dataset.b = actual.id; el.dataset.f = f;
+    const txt = el.textContent.replace(/­/g, '').trim();
+    if ((txt === GUIA || (f === 'titulo' && txt === GUIA_TITULO)) && !String(actual[f] || '').trim()) el.dataset.guia = '1';
+  }
+}
+function lineasDe(el) {
+  const inl = n => {
+    if (n.nodeType === 3) return n.nodeValue;
+    if (n.nodeType !== 1) return '';
+    if (n.tagName === 'BR') return '\n';
+    const dentro = [...n.childNodes].map(inl).join('');
+    if (!dentro.trim()) return dentro;
+    switch (n.tagName) {
+      case 'STRONG': case 'B': return `**${dentro}**`;
+      case 'EM': case 'I': return `*${dentro}*`;
+      case 'CODE': return '`' + dentro + '`';
+      case 'A': return `[${dentro}](${n.getAttribute('href') || ''})`;
+      case 'DIV': case 'P': return '\n' + dentro + '\n';
+      default: return dentro;
+    }
+  };
+  return [...el.childNodes].map(inl).join('').split('\n')
+    .map(l => l.replace(/­/g, '').replace(/ /g, ' ').replace(/\s+/g, ' ').trim()).filter(Boolean);
+}
+function valorCampo(d, id, f, el) {
+  if (!MULTI.has(f)) return lineasDe(el).join(' ');
+  const L = [];
+  for (const x of d.querySelectorAll(`[data-b="${id}"][data-f="${f}"]`)) {
+    let pre = '';
+    if (x.tagName === 'LI') pre = x.parentElement.tagName === 'OL' ? '1. ' : '- ';
+    else if (/^H[2-4]$/.test(x.tagName)) pre = '#'.repeat(+x.tagName[1]) + ' ';
+    else if (x.tagName === 'P' && x.closest('blockquote:not(.destacada)')) pre = '> ';
+    lineasDe(x).forEach((l, k) => L.push((k === 0 || pre === '> ' ? pre : '') + l));
+  }
+  return L.join('\n');
+}
+function sincronizarFormulario(id, f, v) {
+  const tarjetaEl = id === '@' ? $$('.tarjeta.fija').find(t => t.querySelector(`[data-k="${f}"]`)) : document.querySelector(`.tarjeta[data-id="${id}"]`);
+  const campoEl = tarjetaEl?.querySelector(`[data-k="${f}"]`);
+  if (campoEl && campoEl !== document.activeElement) campoEl.value = v;
+  const b = S.bloques.find(x => x.id === id); if (b) resumir(b);
+}
+let pendienteVista = false;
+function conectarVista(d) {
+  d.addEventListener('input', e => {
+    const el = e.target.closest?.('[data-f]'); if (!el) return;
+    const id = el.dataset.b, f = el.dataset.f, v = valorCampo(d, id, f, el);
+    if (id === '@') S.ajustes[f] = v;
+    else { const b = S.bloques.find(x => x.id === id); if (!b) return; b[f] = v; }
+    pendienteVista = true;
+    sincronizarFormulario(id, f, v);
+    clearTimeout(tGuardar); tGuardar = setTimeout(guardarLocal, 900);
+  });
+  d.addEventListener('focusin', e => {
+    const el = e.target.closest?.('[data-f]'); if (!el) return;
+    if (el.dataset.b !== '@') activar(el.dataset.b, true);
+    if (el.dataset.guia) { el.textContent = ''; delete el.dataset.guia; }
+    if (!pendienteVista) instantanea();
+  });
+  d.addEventListener('focusout', () => setTimeout(() => {
+    if (escribiendo(d.activeElement)) return;  // pasó a otro texto de la vista: se maqueta al salir del todo
+    if (pendienteVista) { pendienteVista = false; actualizarVista(); }
+  }, 120));
+  d.addEventListener('keydown', e => {
+    const el = e.target.closest?.('[data-f]'); if (!el) return;
+    if (e.key === 'Escape') { el.blur(); return; }
+    if (e.key === 'Enter' && !MULTI.has(el.dataset.f)) { e.preventDefault(); el.blur(); }
+    if ((e.ctrlKey || e.metaKey) && ['b', 'i'].includes(e.key.toLowerCase())) { e.preventDefault(); d.execCommand(e.key.toLowerCase() === 'b' ? 'bold' : 'italic'); }
+  });
+  d.addEventListener('paste', e => {
+    const el = e.target.closest?.('[data-f]'); if (!el) return;
+    e.preventDefault();  // solo texto: el formato pegado de otra app rompería la plantilla
+    d.execCommand('insertText', false, e.clipboardData.getData('text/plain'));
+  });
+  d.addEventListener('click', e => {
+    const img = e.target.closest?.('img.img-editable'); if (!img) return;
+    const b = S.bloques.find(x => x.id === img.dataset.b); if (!b) return;
+    activar(b.id, true);
+    destinoArchivo = { set: v => { b.img = v; } }; $('#f-imagen').click();
+  });
 }
 
 /* ===================================================================== guardado (IndexedDB) */
@@ -607,7 +758,7 @@ async function ponerImagen(destino, archivo) {
   try {
     const d = await prepararImagen(archivo);
     const id = 'i' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
-    S.imgs[id] = d; destino.set('img:' + id);
+    instantanea(); S.imgs[id] = d; destino.set('img:' + id);
     limpiarImagenes(); pintar(); cambio(); aviso('Imagen lista');
   } catch (e) { aviso('No pude leer esa imagen'); }
 }
@@ -615,6 +766,7 @@ function limpiarImagenes() {
   const usadas = new Set();
   const ver = v => { if (typeof v === 'string' && v.startsWith('img:')) usadas.add(v.slice(4)); };
   S.bloques.forEach(b => ver(b.img)); ver(S.ajustes.portadaImg);
+  for (const p of pila) for (const m of p.matchAll(/img:([a-z0-9]+)/g)) usadas.add(m[1]);
   for (const id of Object.keys(S.imgs)) if (!usadas.has(id)) { delete S.imgs[id]; if (urlsVista[id]) { URL.revokeObjectURL(urlsVista[id]); delete urlsVista[id]; } }
 }
 let destinoArchivo = null;
@@ -630,7 +782,7 @@ function slotImagen(valor, set, etiqueta) {
   const destino = { set };
   const src = valor ? resolver(true)(valor) : '';
   const mini = h('div', { class: 'mini-img', style: src ? `background-image:url("${src}")` : null }, src ? '' : '＋');
-  const sel = h('select', { 'aria-label': 'Usar una imagen de la marca', onchange: e => { if (e.target.value) { set('marca:' + e.target.value); limpiarImagenes(); pintar(); cambio(); } } },
+  const sel = h('select', { 'aria-label': 'Usar una imagen de la marca', onchange: e => { if (e.target.value) { instantanea(); set('marca:' + e.target.value); limpiarImagenes(); pintar(); cambio(); } } },
     h('option', { value: '' }, 'o usa una de la marca…'),
     NOMBRES_MARCA.map(k => h('option', { value: k, selected: valor === 'marca:' + k }, etiquetaMarca(k))));
   const slot = h('div', { class: 'slot', tabindex: '0', title: 'Clic para subir, Ctrl+V para pegar, o arrastra una imagen' },
@@ -639,7 +791,7 @@ function slotImagen(valor, set, etiqueta) {
       h('b', {}, etiqueta || 'Imagen'),
       h('span', {}, 'Clic para subir · Ctrl+V para pegar · arrastra aquí'),
       h('div', { class: 'fila' }, sel,
-        valor ? h('button', { class: 'mini', type: 'button', onclick: e => { e.stopPropagation(); set(''); limpiarImagenes(); pintar(); cambio(); } }, 'Quitar') : null)));
+        valor ? h('button', { class: 'mini', type: 'button', onclick: e => { e.stopPropagation(); instantanea(); set(''); limpiarImagenes(); pintar(); cambio(); } }, 'Quitar') : null)));
   slot._destino = destino;
   slot.addEventListener('click', e => { if (e.target.closest('select,button')) return; destinoArchivo = destino; $('#f-imagen').click(); });
   slot.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); destinoArchivo = destino; $('#f-imagen').click(); } });
@@ -664,7 +816,7 @@ document.addEventListener('paste', e => {
   if (b && 'img' in b) return ponerImagen({ set: v => { b.img = v; } }, f);
   const nb = bloque('imagen');
   const i = b ? S.bloques.indexOf(b) + 1 : S.bloques.length;
-  S.bloques.splice(i, 0, nb); activo = nb.id;
+  instantanea(); S.bloques.splice(i, 0, nb); activo = nb.id;
   ponerImagen({ set: v => { nb.img = v; } }, f);
 });
 
@@ -684,11 +836,11 @@ function campo(obj, def, alCambiar) {
       h('input', { type: 'range', min: o.min, max: o.max, step: o.paso || 1, value: obj[k], oninput: e => { out.textContent = e.target.value + (o.suf || ''); set(+e.target.value); } }), out));
   }
   if (tipo === 'area') {
-    const ta = h('textarea', { class: o.corta ? 'corta' : null, placeholder: o.ph || '', spellcheck: 'true', oninput: e => { set(e.target.value); resumir(obj); } });
+    const ta = h('textarea', { 'data-k': k, class: o.corta ? 'corta' : null, placeholder: o.ph || '', spellcheck: 'true', oninput: e => { set(e.target.value); resumir(obj); } });
     ta.value = obj[k] || '';
     return h('label', { class: cls }, label, ta);
   }
-  return h('label', { class: cls }, label, h('input', { type: 'text', value: obj[k] || '', placeholder: o.ph || '', oninput: e => { set(e.target.value); resumir(obj); } }));
+  return h('label', { class: cls }, label, h('input', { type: 'text', 'data-k': k, value: obj[k] || '', placeholder: o.ph || '', oninput: e => { set(e.target.value); resumir(obj); } }));
 }
 function resumenDe(b) {
   const t = b.titulo || b.texto || b.pie || b.popular || '';
@@ -701,30 +853,34 @@ function resumir(b) { const el = document.querySelector(`[data-id="${b.id}"] .re
 const plegados = new Set();
 function tarjeta(b, i) {
   const T = TIPOS[b.tipo];
-  const mover = d => { const j = i + d; if (j < 0 || j >= S.bloques.length) return; [S.bloques[i], S.bloques[j]] = [S.bloques[j], S.bloques[i]]; pintar(); cambio(); };
+  const mover = d => { const j = i + d; if (j < 0 || j >= S.bloques.length) return; instantanea(); [S.bloques[i], S.bloques[j]] = [S.bloques[j], S.bloques[i]]; pintar(); cambio(); };
   const ctl = (txt, title, fn, cls) => h('button', { class: 'ic' + (cls ? ' ' + cls : ''), type: 'button', title, 'aria-label': title, onclick: e => { e.stopPropagation(); fn(); } }, txt);
   const el = h('section', { class: 'tarjeta' + (plegados.has(b.id) ? ' plegada' : '') + (activo === b.id ? ' activa' : ''), 'data-id': b.id },
     h('header', { onclick: () => { plegados.has(b.id) ? plegados.delete(b.id) : plegados.add(b.id); el.classList.toggle('plegada'); activar(b.id); } },
       h('span', { class: 'tipo' }, T.ico + ' ' + T.n), h('span', { class: 'resumen' }, resumenDe(b)),
       h('span', { class: 'ctl' },
         ctl('↑', 'Subir', () => mover(-1)), ctl('↓', 'Bajar', () => mover(1)),
-        ctl('⧉', 'Duplicar', () => { const c = { ...structuredClone(b), id: nuevoId() }; S.bloques.splice(i + 1, 0, c); pintar(); cambio(); }),
-        ctl('✕', 'Borrar', () => { S.bloques.splice(i, 1); limpiarImagenes(); pintar(); cambio(); aviso('Bloque borrado'); }, 'borrar'))),
-    T.campos.length ? h('div', { class: 'campos' }, T.campos.map(c => campo(b, c)), b.tipo === 'imagen' ? null : null) : null);
+        ctl('⧉', 'Duplicar', () => { instantanea(); const c = { ...structuredClone(b), id: nuevoId() }; S.bloques.splice(i + 1, 0, c); activo = c.id; pintar(); cambio(); aviso('Bloque duplicado'); }),
+        ctl('✕', 'Borrar', () => { instantanea(); S.bloques.splice(i, 1); if (activo === b.id) activo = null; pintar(); cambio(); aviso('Bloque borrado · «Deshacer» o Ctrl+Z lo recupera'); }, 'borrar'))),
+    T.campos.length ? h('div', { class: 'campos' }, T.campos.map(c => campo(b, c))) : h('div', { class: 'campos' }, h('p', { class: 'ayuda' }, T.d)));
   el.addEventListener('focusin', () => activar(b.id));
   return el;
 }
-function activar(id) {
+function activar(id, desdeVista = false) {
   if (activo === id) return;
   activo = id;
   $$('.tarjeta[data-id]').forEach(t => t.classList.toggle('activa', t.dataset.id === id));
-  irA(id);
+  if (desdeVista) document.querySelector(`.tarjeta[data-id="${id}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  else irA(id);
 }
 function insertador(pos) {
   return h('div', { class: 'insertar' }, h('button', { type: 'button', onclick: e => abrirMenuBloques(e.currentTarget, pos) }, '+ insertar aquí'));
 }
 function agregar(tipo, pos = S.bloques.length) {
-  const b = bloque(tipo); S.bloques.splice(pos, 0, b); activo = b.id; pintar(); cambio();
+  instantanea();
+  const b = bloque(tipo); S.bloques.splice(pos, 0, b); activo = b.id; plegados.delete(b.id); pintar(); cambio();
+  aviso(TIPOS[tipo].n + ' añadido');
+  setTimeout(() => irA(b.id), 400);
   requestAnimationFrame(() => { const t = document.querySelector(`[data-id="${b.id}"]`); if (t) { t.scrollIntoView({ block: 'center', behavior: 'smooth' }); t.querySelector('textarea,input[type=text],.slot')?.focus({ preventScroll: true }); } });
 }
 
@@ -754,7 +910,8 @@ function fija(titulo, ico, defs, clave) {
 }
 function pintar() {
   const ed = $('#editor'), y = ed.scrollTop;
-  ed.replaceChildren(
+  // replaceChildren no aplana listas: sin .flat() las tarjetas de bloque no se dibujaban.
+  ed.replaceChildren(...[
     h('h2', { class: 'seccion' }, 'Inicio'),
     fija('Portada', '★', A_PORTADA, 'portada'),
     fija('Documento', '⚙', A_DOC, 'doc'),
@@ -765,7 +922,7 @@ function pintar() {
     h('div', { class: 'anadir' }, h('h3', {}, 'Añadir bloque'),
       h('div', { class: 'botones' }, Object.entries(TIPOS).map(([t, T]) => h('button', { class: 'btn', type: 'button', title: T.d, onclick: () => agregar(t) }, T.ico + ' ' + T.n)))),
     h('h2', { class: 'seccion' }, 'Final'),
-    fija('Contraportada', '◆', A_CONTRA, 'contra'));
+    fija('Contraportada', '◆', A_CONTRA, 'contra')].flat(Infinity).filter(Boolean));
   ed.scrollTop = y;
 }
 
@@ -847,7 +1004,8 @@ const PLANTILLAS = {
 };
 function usarPlantilla(k) {
   const p = PLANTILLAS[k].f();
-  S = { v: 1, ajustes: p.ajustes, bloques: p.bloques, imgs: {} };
+  instantanea();
+  S = { v: 1, ajustes: p.ajustes, bloques: p.bloques, imgs: S.imgs };
   activo = null; plegados.clear(); $('#s-tema').value = S.ajustes.tema;
   pintar(); cambio(); vista.contentDocument?.scrollingElement?.scrollTo(0, 0);
   aviso('Plantilla «' + PLANTILLAS[k].n + '» lista: cambia los textos y las imágenes');
@@ -856,19 +1014,10 @@ $('#b-plantillas').addEventListener('click', e => {
   const m = $('#menu-plantillas');
   m.replaceChildren(...Object.entries(PLANTILLAS).map(([k, p]) => h('button', { type: 'button', onclick: () => {
     cerrarMenus();
-    if (S.bloques.length && !confirmarReemplazo()) return;
     usarPlantilla(k);
   } }, h('b', {}, p.n), h('span', {}, p.d))));
   posicionar(m, e.currentTarget);
 });
-let ultimoAvisoReemplazo = 0;
-function confirmarReemplazo() {
-  // Sin diálogos del navegador: la primera vez avisa, la segunda (en 5 s) reemplaza.
-  if (Date.now() - ultimoAvisoReemplazo < 5000) return true;
-  ultimoAvisoReemplazo = Date.now();
-  aviso('Esto reemplaza tu historia actual. Guárdala antes, o elige la plantilla otra vez para continuar.');
-  return false;
-}
 
 /* ===================================================================== pegar historia completa */
 const modal = $('#modal-importar');
@@ -891,7 +1040,8 @@ $('#b-importar-ok').addEventListener('click', () => {
     }
   }
   nuevos.forEach(b => { b.texto = b.texto.replace(/\n{2,}/g, '\n').trim(); });
-  if ($('#c-reemplazar').checked) { S.bloques = nuevos; limpiarImagenes(); } else S.bloques.push(...nuevos);
+  instantanea();
+  if ($('#c-reemplazar').checked) S.bloques = nuevos; else S.bloques.push(...nuevos);
   modal.hidden = true; $('#t-importar').value = '';
   pintar(); cambio();
   aviso(`${nuevos.filter(b => b.tipo === 'capitulo').length} capítulos creados`);
@@ -950,5 +1100,7 @@ $$('.vista-barra .mini').forEach(b => b.addEventListener('click', () => {
     const p = PLANTILLAS.corta.f(); S = { v: 1, ajustes: p.ajustes, bloques: p.bloques, imgs: {} };
   }
   $('#s-tema').value = S.ajustes.tema;
+  $('#b-deshacer').addEventListener('click', deshacer);
+  actualizarDeshacer();
   pintar(); prepararVista();
 })();
