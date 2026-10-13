@@ -524,7 +524,7 @@ class Maquetador:
   </header>
   <div class="etiqueta-portada">{inline(m.get('etiqueta', 'HISTORIAS'))}</div>
   <h1 class="titulo-portada">{inline(titulo)}</h1>
-  <p class="subtitulo-portada">{inline(m.get('subtitulo', ''))}</p>
+  <p class="subtitulo-portada" style="--sub:calc({alto_sub(titulo)}*var(--mm))">{inline(m.get('subtitulo', ''))}</p>
   {img}
   <footer class="creditos">
     <span>{inline(m.get('autoria', ''))}</span>
@@ -601,6 +601,17 @@ class Maquetador:
                 f'<span>{cab}</span><a class="btn" href="#indice">Índice</a></header>'
                 f'<main class="libro">{portada}\n{self.indice(cuerpo)}\n{cuerpo}\n{self.contraportada()}</main>'
                 f'<a class="volver" href="#indice" aria-label="Volver al índice">↑</a></body></html>')
+
+
+def alto_sub(titulo, por=18):
+    """Posición (mm) del subtítulo de portada según las líneas del título (≈18 caracteres por línea)."""
+    n, ancho = 1, 0
+    for w in re.sub(r"[*_`]", "", titulo).split():
+        if ancho and ancho + 1 + len(w) > por:
+            n, ancho = n + 1, len(w)
+        else:
+            ancho += (1 if ancho else 0) + len(w)
+    return f"{max(86, 56 + n * 16.8 + 8):.1f}"
 
 
 def css_str(s):
@@ -716,6 +727,7 @@ figure.ancha{{column-span:all;margin:3mm 0 5mm}}
 figure.flotante{{width:44%;margin:1mm 0 3mm}}
 figure.flotante.derecha{{float:right;margin-left:4mm}}
 figure.flotante.izquierda{{float:left;margin-right:4mm}}
+blockquote.destacada,aside.recuadro,aside.leyenda,header.capitulo,.divisor,.epigrafe{{clear:both}}
 
 /* --- recuadros, epígrafes y citas ----------------------------------------------------- */
 aside.recuadro{{background:{cream};background-image:{puntos};border:1.6pt solid {ink};border-radius:4mm;padding:4.5mm 4.5mm 3mm;

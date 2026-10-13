@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editor de historias</title>
+<meta name="description" content="Pega texto e imágenes y obtén una historia maquetada con el estilo Tazón para Dos, en HTML o PDF.">
+<style>/*CSS*/</style>
+</head>
+<body>
+<header class="cabecera">
+  <div class="marca-ed"><img id="sello-ed" alt=""><div><b>Editor de historias</b><span>Tazón para Dos · plantillas</span></div></div>
+  <nav class="acciones">
+    <div class="grupo">
+      <button class="btn" id="b-plantillas" aria-haspopup="true">✦ Plantillas</button>
+      <button class="btn" id="b-importar">Pegar historia completa</button>
+    </div>
+    <label class="tema">Estilo
+      <select id="s-tema">
+        <option value="tazon">Tazón (claro)</option>
+        <option value="tinieblas">Tinieblas (oscuro)</option>
+        <option value="pergamino">Tinieblas · pergamino</option>
+      </select>
+    </label>
+    <div class="grupo">
+      <button class="btn" id="b-abrir">Abrir proyecto</button>
+      <button class="btn" id="b-guardar">Guardar proyecto</button>
+      <button class="btn sol" id="b-html">Descargar HTML</button>
+      <button class="btn coral" id="b-pdf">Imprimir / PDF</button>
+    </div>
+  </nav>
+</header>
+<div class="pestanas" role="tablist">
+  <button class="activa" data-p="editar">Editar</button><button data-p="vista">Vista previa</button>
+</div>
+<main class="area">
+  <section class="editor" id="editor" aria-label="Bloques de la historia"></section>
+  <section class="vista" aria-label="Vista previa">
+    <div class="vista-barra">
+      <span>Vista previa</span>
+      <div class="grupo">
+        <button class="mini activa" data-ancho="100%">Computador</button>
+        <button class="mini" data-ancho="400px">Celular</button>
+      </div>
+    </div>
+    <div class="marco-vista"><iframe id="vista" title="Vista previa de la historia"></iframe></div>
+  </section>
+</main>
+<div class="menu" id="menu-plantillas" hidden></div>
+<div class="menu" id="menu-bloques" hidden></div>
+<div class="modal" id="modal-importar" hidden>
+  <div class="caja">
+    <h2>Pegar historia completa</h2>
+    <p>Pega todo el texto. Cada línea que empiece por <code>#</code>, «Capítulo», «Parte», «Prólogo» o «Epílogo» se convierte en un capítulo nuevo; el resto queda como texto. Luego añade imágenes y recuadros donde quieras.</p>
+    <textarea id="t-importar" rows="14" placeholder="Pega aquí tu historia…"></textarea>
+    <label class="check"><input type="checkbox" id="c-reemplazar"> Reemplazar los bloques actuales (si no, se añade al final)</label>
+    <div class="fila-btn"><button class="btn" data-cerrar>Cancelar</button><button class="btn sol" id="b-importar-ok">Crear capítulos</button></div>
+  </div>
+</div>
+<input type="file" id="f-proyecto" accept=".json,application/json" hidden>
+<input type="file" id="f-imagen" accept="image/*" hidden>
+<div class="aviso" id="aviso" role="status" aria-live="polite"></div>
+<script>/*RECURSOS*/</script>
+<script>/*JS*/</script>
+</body>
+</html>

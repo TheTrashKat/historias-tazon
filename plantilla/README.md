@@ -46,6 +46,25 @@ La portada, las páginas a sangre, los banners, los recuadros de leyenda y las f
 
 Para usar la plantilla con otra historia no hace falta tocar nada: cualquier `.md` con el formato de abajo produce su propia web.
 
+## Editor visual (pegar texto e imágenes)
+
+`editor/index.html` es la forma fácil de usar las plantillas: se abre con doble clic en el navegador, sin instalar nada y sin internet.
+
+1. Elige una **plantilla** (Historia corta, Crónica a dos columnas, Todos los bloques o En blanco) o usa **Pegar historia completa**: las líneas que empiezan por «Capítulo», «Parte», «Prólogo», «Epílogo» o `#` se vuelven capítulos.
+2. Rellena la **portada**, añade **bloques** y la **contraportada**: capítulo, texto, columnas (1/2/3), imagen (en el texto, ancha, en la columna, flotante izquierda/derecha), página completa / portadilla de parte, apertura con banner, recuadro, leyenda (dos paneles), cita destacada, epígrafe, divisor, salto de página y espacio.
+3. Imágenes: clic en el hueco para subir, **Ctrl+V** para pegar, arrastrar y soltar, o elegir una pieza de la marca (Tazón, Tinieblas e ilustraciones de ejemplo). Las fotos grandes se reducen a 2400 px.
+4. **Estilo**: Tazón (claro), Tinieblas (oscuro) o Tinieblas pergamino.
+5. **Descargar HTML** da un archivo autocontenido (fuentes, imágenes y estilo dentro). **Imprimir / PDF** abre el diálogo del navegador: «Guardar como PDF», A4, «Gráficos de fondo» activado. Las páginas salen igual que con `maquetar.py`.
+6. El trabajo se guarda solo en el navegador; **Guardar proyecto** descarga un `.json` (con las imágenes) para seguir en otro equipo con **Abrir proyecto**.
+
+Enlace directo a una plantilla: `editor/index.html#plantilla=cronica` (también `corta`, `todo`, `blanco`).
+
+El editor usa el mismo CSS que `maquetar.py`. Si cambias el maquetador, la marca o los temas, regenéralo:
+
+```
+python -I editor/generar_editor.py
+```
+
 ## Temas (p. ej. Tinieblas)
 
 `--tema archivo.css` aplica un CSS encima del estilo base, tanto en el PDF como en la versión `--web`. La marca oscura **Tazón para Dos · Tinieblas** trae dos temas (https://thetrashkat.github.io/tazon-para-dos-tinieblas/):
