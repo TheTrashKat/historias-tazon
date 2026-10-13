@@ -164,6 +164,19 @@ def slug(texto):
     return re.sub(r"[^a-z0-9]+", "-", t).strip("-") or "seccion"
 
 
+# Divisores de la marca (::: divisor cinta | destellos | dados | puntos | escalon | camino | tazon | luna | greca | zarpazo).
+# Los genera D:/tazon-para-dos-marca/tools/divisores.py; sin nombre se usa la diagonal clásica o el «divisor:» del front matter.
+_RUTA_DIVISORES = MARCA / "divisores-claro.css"
+DIVISORES_CSS = _RUTA_DIVISORES.read_text(encoding="utf-8") if _RUTA_DIVISORES.exists() else ""
+DIVISORES = set(re.findall(r"\.divisor\.d-([\w-]+)\{", DIVISORES_CSS))
+_divisor = {"defecto": ""}
+
+
+def html_divisor(nombre=""):
+    n = nombre or _divisor["defecto"]  # «diagonal» fuerza la diagonal clásica aunque el documento use otro
+    return f'<div class="divisor{f" d-{n}" if n in DIVISORES else ""}" role="separator"></div>'
+
+
 def bloques_md(lineas, capitular=False):
     """Convierte líneas Markdown (sin directivas) a HTML."""
     out, parrafo, lista, cita = [], [], None, []
@@ -215,7 +228,7 @@ def bloques_md(lineas, capitular=False):
             continue
         if re.match(r"^(-{3,}|\*{3,})$", s.strip()):
             cerrar_parrafo(); cerrar_lista()
-            out.append('<div class="divisor" role="separator"></div>')
+            out.append(html_divisor())
             continue
         m = re.match(r"^\s*([-*+]|\d+[.)])\s+(.*)$", s)
         if m:
@@ -250,6 +263,7 @@ class Maquetador:
         self.meta, cuerpo = self.front_matter(texto)
         self.lineas = cuerpo.splitlines()
         self.columnas = int(self.meta.get("columnas", "1"))
+        _divisor["defecto"] = self.meta.get("divisor", "")
 
     # -- utilidades ----------------------------------------------------------------
     @staticmethod
@@ -407,7 +421,7 @@ class Maquetador:
             elif nombre == "espacio":
                 volcar(); partes.append(f'<div style="height:{libres[0] if libres else "6mm"}"></div>')
             elif nombre in ("ornamento", "divisor"):
-                volcar(); partes.append('<div class="divisor" role="separator"></div>')
+                volcar(); partes.append(html_divisor(next((t for t in libres if t in DIVISORES or t == "diagonal"), "")))
             elif nombre in ("figura", "imagen"):
                 volcar()
                 clases = ["fig"]
@@ -575,7 +589,7 @@ class Maquetador:
             paper=PAPER, muted=MUTED, triangulo=TRIANGULO, hexagono=HEXAGONO, destello=DESTELLO,
             divisor=DIVISOR, corte=CORTE_BANNER, puntos=PUNTOS, puntos_claros=PUNTOS_CLAROS,
             cab_izq=css_str(cab_izq), cab_der=css_str(cab_der), pie=css_str(pie),
-            nombradas=paginas_nombradas())
+            nombradas=paginas_nombradas()) + DIVISORES_CSS
         titulo = html.escape(re.sub(r"[*_]", "", m.get("titulo", "Historia")))
         if not self.web:
             return (f'<!doctype html>\n<html lang="{m.get("idioma", "es")}"><head><meta charset="utf-8">'

@@ -83,6 +83,10 @@ function slug(t) {
   return t.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'seccion';
 }
 
+// Divisores de la marca: ::: divisor cinta | luna…; sin nombre, el del documento o la diagonal clásica.
+const DIVISORES = new Set(R.divisores || []);
+let divisorDefecto = '';
+const htmlDivisor = (n = '') => { n = n || divisorDefecto; if (n === 'diagonal') n = ''; return `<div class="divisor${DIVISORES.has(n) ? ' d-' + n : ''}" role="separator"></div>`; };
 function bloquesMd(lineas, capitular = false) {
   const out = []; let parrafo = [], lista = null, cita = [], cap = capitular;
   const cP = () => { if (parrafo.length) { out.push(`<p${cap ? ' class="capitular"' : ''}>${guionar(inline(parrafo.join(' ')))}</p>`); cap = false; parrafo = []; } };
@@ -107,7 +111,7 @@ function bloquesMd(lineas, capitular = false) {
       } else out.push(`<h${nivel}>${inline(texto)}</h${nivel}>`);
       continue;
     }
-    if (/^(-{3,}|\*{3,})$/.test(s.trim())) { cP(); cL(); out.push('<div class="divisor" role="separator"></div>'); continue; }
+    if (/^(-{3,}|\*{3,})$/.test(s.trim())) { cP(); cL(); out.push(htmlDivisor()); continue; }
     m = s.match(/^\s*([-*+]|\d+[.)])\s+(.*)$/);
     if (m) {
       cP();
@@ -223,7 +227,7 @@ class Render {
         abrir(libres.includes('pagina') || libres.includes('página'));
       } else if (nombre === 'salto') { volcar(); partes.push('<div class="salto"></div>'); }
       else if (nombre === 'espacio') { volcar(); partes.push(`<div style="height:${escAttr(libres[0] || '6mm')}"></div>`); }
-      else if (nombre === 'ornamento' || nombre === 'divisor') { volcar(); partes.push('<div class="divisor" role="separator"></div>'); }
+      else if (nombre === 'ornamento' || nombre === 'divisor') { volcar(); partes.push(htmlDivisor(libres.find(t => DIVISORES.has(t) || t === 'diagonal') || '')); }
       else if (nombre === 'ancla') { volcar(); partes.push(`<span class="ancla-editor" id="ed-${escAttr(libres[0] || '')}"></span>`); }
       else if (nombre === 'figura' || nombre === 'imagen') {
         volcar();
@@ -304,6 +308,9 @@ class Render {
 
 /* ===================================================================== estado */
 const COLOR_OPC = [['turquesa', 'Turquesa'], ['coral', 'Coral'], ['sol', 'Sol'], ['tinta', 'Tinta'], ['crema', 'Crema']];
+const NOMBRE_DIVISOR = { cinta: 'Cinta de colores', destellos: 'Destellos', dados: 'Dados', puntos: 'Puntos', escalon: 'Escalones',
+  camino: 'Camino con meeple', tazon: 'Tazón con vapor', luna: 'Luna y estrellas', greca: 'Greca muisca', zarpazo: 'Zarpazo' };
+const OPC_DIVISOR = [['diagonal', 'Diagonal clásica'], ...(R.divisores || []).map(n => [n, NOMBRE_DIVISOR[n] || n])];
 const COLS_OPC = [['1', 'Una columna'], ['2', 'Dos columnas'], ['3', 'Tres columnas']];
 
 const TIPOS = {
@@ -341,7 +348,8 @@ const TIPOS = {
     campos: [['texto', 'area', 'Cita', { corta: 1 }], ['ancho', 'check', 'A todo el ancho']] },
   epigrafe: { n: 'Epígrafe', ico: '“', d: 'Cita breve en cursiva con su autor.',
     campos: [['texto', 'area', 'Texto', { corta: 1 }], ['autor', 'text', 'Autor o fuente', { ph: 'Dicho popular' }]] },
-  divisor: { n: 'Divisor', ico: '⟋', d: 'Diagonal con franja sol y destello.', campos: [] },
+  divisor: { n: 'Divisor', ico: '⟋', d: 'Separa escenas: cinta, destellos, dados, luna, greca…',
+    campos: [['estilo', 'select', 'Estilo', { opc: [['', 'Como el documento'], ...OPC_DIVISOR] }]] },
   salto: { n: 'Salto de página', ico: '⤓', d: 'Lo siguiente empieza en una página nueva.', campos: [] },
   espacio: { n: 'Espacio', ico: '↕', d: 'Aire vertical.', campos: [['alto', 'text', 'Alto', { ph: '10mm' }]] },
 };
@@ -352,12 +360,12 @@ const DEFECTOS = {
   apertura: { img: '', alto: 88, pie: '', kicker: '', titulo: '', texto: '', cols: '1' },
   recuadro: { titulo: '', color: 'turquesa', texto: '', ancho: false },
   leyenda: { titulo: '', color: 'sol', popular: '', tinieblas: '', ancho: true },
-  cita: { texto: '', ancho: false }, epigrafe: { texto: '', autor: '' }, divisor: {}, salto: {}, espacio: { alto: '10mm' },
+  cita: { texto: '', ancho: false }, epigrafe: { texto: '', autor: '' }, divisor: { estilo: '' }, salto: {}, espacio: { alto: '10mm' },
 };
 const AJUSTES_DEF = {
   portadaOn: true, titulo: 'Título de la historia', subtitulo: '', etiqueta: 'Historias', autoria: '', fecha: '',
   color: 'turquesa', colorInf: 'coral', portadaImg: '', coleccion: 'Tazón para Dos · Historias', cabecera: '', pie: '',
-  columnas: '1', leyIzq: 'Lo que se cuenta', leyDer: 'En el Mundo de Tinieblas',
+  columnas: '1', divisor: 'diagonal', leyIzq: 'Lo que se cuenta', leyDer: 'En el Mundo de Tinieblas',
   contraOn: true, contraTexto: '', creditos: '', tema: 'tazon',
 };
 let S = { v: 1, ajustes: { ...AJUSTES_DEF }, bloques: [], imgs: {} };
@@ -431,7 +439,7 @@ function aMarkdown(b, ancla) {
       break;
     case 'cita': L.push(`::: cita${b.ancho ? ' ancho' : ''}`, parrafos(b.texto), ':::'); break;
     case 'epigrafe': L.push('::: epigrafe', parrafos(b.texto), ...(b.autor ? ['— ' + una(b.autor)] : []), ':::'); break;
-    case 'divisor': L.push('::: divisor'); break;
+    case 'divisor': L.push(`::: divisor ${b.estilo || ''}`.trim()); break;
     case 'salto': L.push('::: salto'); break;
     case 'espacio': L.push(`::: espacio ${una(b.alto).replace(/\s+/g, '') || '10mm'}`); break;
   }
@@ -467,6 +475,7 @@ function resolver(vista) {
 }
 function construir(vista) {
   const a = S.ajustes;
+  divisorDefecto = a.divisor === 'diagonal' ? '' : (a.divisor || '');
   const meta = { titulo: a.titulo, columnas: a.columnas, 'leyenda-izquierda': a.leyIzq, 'leyenda-derecha': a.leyDer };
   const res = resolver(vista);
   const lineas = S.bloques.map(b => aMarkdown(b, vista)).join('\n').split('\n');
@@ -892,7 +901,7 @@ const A_PORTADA = [
   ['portadaImg', 'img', 'Ilustración de portada'],
 ];
 const A_DOC = [
-  ['columnas', 'select', 'Columnas al empezar', { opc: COLS_OPC, medio: 1 }], ['coleccion', 'text', 'Cabecera izquierda', { medio: 1 }],
+  ['columnas', 'select', 'Columnas al empezar', { opc: COLS_OPC, medio: 1 }], ['divisor', 'select', 'Estilo de divisor', { opc: OPC_DIVISOR, medio: 1 }], ['coleccion', 'text', 'Cabecera izquierda', { medio: 1 }],
   ['cabecera', 'text', 'Cabecera derecha', { ph: 'Por defecto, el título', medio: 1 }], ['pie', 'text', 'Pie de página', { ph: 'Por defecto, la etiqueta', medio: 1 }],
   ['leyIzq', 'text', 'Leyendas · rótulo izquierdo', { medio: 1 }], ['leyDer', 'text', 'Leyendas · rótulo derecho', { medio: 1 }],
 ];

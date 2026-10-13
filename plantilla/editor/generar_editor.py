@@ -30,7 +30,7 @@ def main():
         fuentes="__FUENTES__", ink=M.INK, teal=M.TEAL, coral=M.CORAL, sun=M.SUN, cream=M.CREAM, paper=M.PAPER,
         muted=M.MUTED, triangulo=M.TRIANGULO, hexagono=M.HEXAGONO, destello=M.DESTELLO, divisor=M.DIVISOR,
         corte=M.CORTE_BANNER, puntos=M.PUNTOS, puntos_claros=M.PUNTOS_CLAROS,
-        cab_izq='"__CAB_IZQ__"', cab_der='"__CAB_DER__"', pie='"__PIE__"', nombradas=M.paginas_nombradas())
+        cab_izq='"__CAB_IZQ__"', cab_der='"__CAB_DER__"', pie='"__PIE__"', nombradas=M.paginas_nombradas()) + M.DIVISORES_CSS
     corte = completo.index(":root{")
     web = M.WEB_CSS.format(ink=M.INK, teal=M.TEAL, coral=M.CORAL, sun=M.SUN, cream=M.CREAM, paper=M.PAPER,
                            muted=M.MUTED, puntos=M.PUNTOS)
@@ -53,7 +53,8 @@ def main():
             temas[clave] = (TINIEBLAS / nombre).read_text(encoding="utf-8")
 
     R = {"fontcss": completo[:corte], "css": completo[corte:], "webcss": web, "fuentes": fuentes,
-         "marca": marca, "temas": temas, "colores": M.COLORES}
+         "marca": marca, "temas": temas, "colores": M.COLORES,
+         "divisores": sorted(M.DIVISORES)}
     recursos = "window.R=" + json.dumps(R, ensure_ascii=False).replace("</", "<\\/") + ";"
 
     plantilla = (AQUI / "editor.src.html").read_text(encoding="utf-8")
