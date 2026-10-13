@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editor de pancartas</title>
+<meta name="description" content="Pancartas, pendones, roll-ups y afiches con el estilo Tazón para Dos: escribe el texto, pega una imagen y descarga el PDF a tamaño real.">
+<style>/*CSS*/</style>
+</head>
+<body>
+<header class="cabecera">
+  <div class="marca-ed"><img id="sello-ed" alt=""><div><b>Editor de pancartas</b><span>Tazón para Dos · impresos</span></div></div>
+  <nav class="acciones">
+    <div class="grupo">
+      <button class="btn" id="b-deshacer" title="Deshacer (Ctrl+Z)" disabled>↶ Deshacer</button>
+      <button class="btn" id="b-plantillas" aria-haspopup="true">✦ Plantillas</button>
+      <a class="btn" href="index.html" title="Abrir el editor de historias">Editor de historias</a>
+    </div>
+    <div class="grupo">
+      <button class="btn" id="b-abrir">Abrir proyecto</button>
+      <button class="btn" id="b-guardar">Guardar proyecto</button>
+      <button class="btn teal" id="b-png">Descargar PNG</button>
+      <button class="btn sol" id="b-html">Descargar HTML</button>
+      <button class="btn coral" id="b-pdf">Imprimir / PDF</button>
+    </div>
+  </nav>
+</header>
+<div class="pestanas" role="tablist">
+  <button class="activa" data-p="editar">Editar</button><button data-p="vista">Vista previa</button>
+</div>
+<main class="area">
+  <section class="editor" id="editor" aria-label="Contenido de la pancarta"></section>
+  <section class="vista" aria-label="Vista previa">
+    <div class="vista-barra">
+      <span>Vista previa · <b class="pista">clic en un texto de la pancarta para ir a su campo</b></span>
+      <span id="medida" class="medida"></span>
+    </div>
+    <div class="marco-vista lienzo" id="lienzo"></div>
+  </section>
+</main>
+<div class="menu" id="menu-plantillas" hidden></div>
+<input type="file" id="f-proyecto" accept=".json,application/json" hidden>
+<input type="file" id="f-imagen" accept="image/*" hidden>
+<div class="aviso" id="aviso" role="status" aria-live="polite"></div>
+<script>/*RECURSOS*/</script>
+<script>/*COMUN*/</script>
+<script>/*JS*/</script>
+</body>
+</html>

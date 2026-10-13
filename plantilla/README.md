@@ -65,6 +65,18 @@ El editor usa el mismo CSS que `maquetar.py`. Si cambias el maquetador, la marca
 python -I editor/generar_editor.py
 ```
 
+## Editor de pancartas
+
+`editor/pancarta.html` reutiliza el editor de historias (`comun.js`: formularios, imágenes, guardado, deshacer y descargas) para hacer piezas impresas a tamaño real:
+
+- **Formatos:** roll-up 80 × 180 y 85 × 200 cm, pendón 60 × 120 cm, afiche A3 y A2, pancarta 200 × 80 y 300 × 100 cm, pasacalle 150 × 50 cm.
+- **Colores:** las fórmulas de la marca (general · rol, juegos de mesa, convocatoria, podcast) y tres en modo Tinieblas (niebla, sangre, vela).
+- **Contenido:** titular de hasta tres líneas en Barlow Condensed 800 con la línea destacada y su sombra, etiqueta, fecha o lugar, imagen (ilustración o foto con marco), llamados, tres íconos con rótulo, usuario y un código QR opcional.
+- **Salidas:** «Imprimir / PDF» a tamaño real (márgenes: ninguno), «Descargar HTML» y «Descargar PNG» (2400 px, para redes).
+- Plantillas: `pancarta.html#plantilla=rol`, `leyendas`, `convocatoria`, `mesa`, `podcast`.
+
+Se genera junto con el editor de historias con `python -I editor/generar_editor.py`.
+
 ## Temas (p. ej. Tinieblas)
 
 `--tema archivo.css` aplica un CSS encima del estilo base, tanto en el PDF como en la versión `--web`. La marca oscura **Tazón para Dos · Tinieblas** trae dos temas (https://thetrashkat.github.io/tazon-para-dos-tinieblas/):

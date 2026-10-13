@@ -1,0 +1,24 @@
+/* Editor de pancartas: lo que cambia respecto al editor de historias */
+a.btn{text-decoration:none;display:inline-flex;align-items:center}
+.lienzo{align-items:center;justify-content:center;padding:24px;overflow:auto;background:#E9E3D6;
+  background-image:radial-gradient(rgba(40,32,59,.12) 1.4px,transparent 1.5px);background-size:22px 22px}
+.lienzo svg{display:block;max-width:100%;max-height:100%;width:auto;height:auto;box-shadow:8px 8px 0 rgba(40,32,59,.35);background:#fff}
+.lienzo svg [data-campo]{cursor:pointer}
+.lienzo svg [data-campo]:hover{opacity:.85}
+.medida{font:500 11px 'DM Mono',monospace;letter-spacing:.08em;color:var(--muted)}
+.formatos{grid-column:span 2;display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
+.formato{cursor:pointer;border:2px solid var(--ink);border-radius:10px;background:#fff;padding:8px 6px 6px;display:flex;flex-direction:column;align-items:center;gap:5px;
+  font:600 12.5px/1.2 'DM Sans';text-align:center}
+.formato i{display:block;background:var(--cream);border:1.5px solid var(--ink);border-radius:3px}
+.formato small{font:500 10.5px 'DM Mono';letter-spacing:.04em;color:var(--muted)}
+.formato.activo{background:var(--sun);box-shadow:3px 3px 0 var(--ink)}
+.recetas{grid-column:span 2;display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+.receta{cursor:pointer;border:2px solid var(--ink);border-radius:10px;overflow:hidden;background:#fff;padding:0;font:600 12px 'DM Sans'}
+.receta .tiras{display:flex;height:34px}
+.receta .tiras span{flex:1}
+.receta b{display:block;padding:5px 4px;font:600 12px 'DM Sans'}
+.receta.activa{box-shadow:3px 3px 0 var(--coral);border-color:var(--coral)}
+.iconos-sel{grid-column:span 2;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.icono-item{display:flex;flex-direction:column;gap:6px;border:1.5px dashed rgba(40,32,59,.35);border-radius:10px;padding:8px}
+.icono-item select,.icono-item input{width:100%;border:1.5px solid var(--ink);border-radius:8px;padding:5px 7px;font:400 13.5px 'DM Sans';background:#fff}
+@media (max-width:900px){.iconos-sel{grid-template-columns:1fr}}

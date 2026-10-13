@@ -1,13 +1,17 @@
-"""Genera editor/index.html: el editor visual de historias (pegar texto + imágenes -> plantilla HTML/PDF).
+"""Genera los editores visuales de Tazón para Dos, cada uno en un solo HTML autocontenido:
 
-Reúne en un solo HTML autocontenido el CSS del maquetador (mismo estilo que maquetar.py), las fuentes,
-las piezas de marca, los temas Tinieblas y algunas ilustraciones de ejemplo. Volver a ejecutarlo
-cuando cambie maquetar.py, la marca o los temas:
+  editor/index.html     editor de historias (pegar texto + imágenes -> plantilla HTML/PDF)
+  editor/pancarta.html  editor de pancartas (roll-up, pendón, pancarta horizontal, afiche)
+
+Ambos comparten comun.js y reúnen el CSS del maquetador (mismo estilo que maquetar.py), las fuentes,
+las piezas de marca, los íconos, los temas Tinieblas y algunas ilustraciones de ejemplo. Volver a
+ejecutarlo cuando cambie maquetar.py, la marca o los temas:
 
     python -I editor/generar_editor.py
 """
 import base64
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -17,6 +21,8 @@ sys.path.insert(0, str(HERRAMIENTA))
 import maquetar as M  # noqa: E402
 
 TINIEBLAS = Path(r"D:\tazon-para-dos-tinieblas")
+MARCA_KIT = Path(r"D:\tazon-para-dos-marca")
+FUENTES_CAMPANA = MARCA_KIT / "tools" / "fonts"
 ILUSTRACIONES = [Path(r"D:\historias\mitos-engativa\imagenes"), Path(r"D:\historias\mago-la-ascension\imagenes")]
 MAX_ILUS = 40_000  # bytes: solo las ilustraciones ligeras entran como ejemplo
 
@@ -55,21 +61,40 @@ def main():
     R = {"fontcss": completo[:corte], "css": completo[corte:], "webcss": web, "fuentes": fuentes,
          "marca": marca, "temas": temas, "colores": M.COLORES,
          "divisores": sorted(M.DIVISORES)}
+    # Para el editor de pancartas: tipografía de campaña (Barlow), íconos de línea y logos Tinieblas
+    campana = {f.name: data_uri(f, "font/ttf") for f in sorted(FUENTES_CAMPANA.glob("*.ttf"))} if FUENTES_CAMPANA.exists() else {}
+    iconos = {}
+    for carpeta, prefijo in ((MARCA_KIT / "assets" / "iconos", ""), (TINIEBLAS / "assets" / "iconos", "tinieblas-")):
+        for p in sorted(carpeta.glob("*.svg")) if carpeta.exists() else []:
+            if p.stem == "sprite":
+                continue
+            interior = re.sub(r"<title>.*?</title>", "", re.search(r"<svg[^>]*>(.*)</svg>", p.read_text(encoding="utf-8"), re.S).group(1), flags=re.S)
+            iconos[prefijo + p.stem] = interior.strip()
+    for p in sorted((TINIEBLAS / "assets" / "logo").glob("*.svg")) if (TINIEBLAS / "assets" / "logo").exists() else []:
+        marca["logo-" + p.stem] = data_uri(p, "image/svg+xml")
+    R.update(campana=campana, iconos=iconos)
     recursos = "window.R=" + json.dumps(R, ensure_ascii=False).replace("</", "<\\/") + ";"
+    comun = (AQUI / "comun.js").read_text(encoding="utf-8")
+    armar("editor.src.html", ["editor.css"], comun, "editor.js", recursos, AQUI / "index.html")
+    armar("pancarta.src.html", ["editor.css", "pancarta.css"], comun, "pancarta.js", recursos, AQUI / "pancarta.html")
+    print(f"  {len(marca)} imágenes de marca, {len(fuentes)} + {len(campana)} fuentes, {len(iconos)} íconos, "
+          f"temas: {', '.join(temas) or 'ninguno'}")
 
-    plantilla = (AQUI / "editor.src.html").read_text(encoding="utf-8")
-    css = (AQUI / "editor.css").read_text(encoding="utf-8")
-    js = (AQUI / "editor.js").read_text(encoding="utf-8").replace("</script", "<\\/script")
-    a, b = plantilla.split("/*CSS*/", 1)
-    plantilla = a + css + b
-    a, b = plantilla.split("/*RECURSOS*/", 1)
-    plantilla = a + recursos + b
-    a, b = plantilla.split("/*JS*/", 1)
-    plantilla = a + js + b
-    salida = AQUI / "index.html"
-    salida.write_text(plantilla, encoding="utf-8")
-    print(f"Editor: {salida}  ({salida.stat().st_size / 1e6:.2f} MB, {len(marca)} imágenes de marca, "
-          f"{len(fuentes)} fuentes, temas: {', '.join(temas) or 'ninguno'})")
+
+def armar(fuente, hojas, comun, js, recursos, salida):
+    """Inserta CSS, recursos, código común y el del editor en la plantilla HTML."""
+    if not (AQUI / fuente).exists():
+        return
+    html_ = (AQUI / fuente).read_text(encoding="utf-8")
+    trozos = {"/*CSS*/": "\n".join((AQUI / h).read_text(encoding="utf-8") for h in hojas),
+              "/*RECURSOS*/": recursos,
+              "/*COMUN*/": comun.replace("</script", "<\\/script"),
+              "/*JS*/": (AQUI / js).read_text(encoding="utf-8").replace("</script", "<\\/script")}
+    for marca_, contenido in trozos.items():
+        a, b = html_.split(marca_, 1)
+        html_ = a + contenido + b
+    salida.write_text(html_, encoding="utf-8")
+    print(f"{salida.name}: {salida.stat().st_size / 1e6:.2f} MB")
 
 
 if __name__ == "__main__":
